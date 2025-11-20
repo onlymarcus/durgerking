@@ -1,54 +1,73 @@
+/* styles.css — Durger King theme (mobile first) */
 :root{
-flex-direction:column;
-align-items:center;
-gap:6px;
+  --bg:#000;
+  --muted:#9ca3af;
+  --accent:#f6b26b;
+  --accent-dark:#d99b4d;
 }
 
+html,body{height:100%}
+body{
+  background:var(--bg);
+  font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  margin:0;
+  color:white;
+}
+
+/* product card */
+#products .card {
+  background: transparent;
+  border-radius: 14px;
+  padding: 10px;
+  text-align: center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
 
 /* lottie size */
 .product-lottie {
-width:74px;
-height:74px;
-margin-bottom:4px;
-border-radius:12px;
+  width:74px;
+  height:74px;
+  margin-bottom:4px;
+  border-radius:12px;
 }
-
 
 /* product name and price */
 .prod-name { font-weight:700; font-size:13px; }
 .prod-price { color: #ff6b6b; font-weight:800; margin-top:4px; }
 
-
 /* buttons */
 .btn-add {
-background:var(--accent);
-color:black;
-padding:8px 12px;
-border-radius:10px;
-font-weight:700;
-min-width:86px;
+  background:var(--accent);
+  color:black;
+  padding:8px 12px;
+  border-radius:10px;
+  font-weight:700;
+  min-width:86px;
 }
 .btn-dec { background:#e55353; color:white; padding:6px 10px; border-radius:10px; font-weight:800; }
 .qty-bubble {
-background:#ffb347;
-color:black;
-min-width:22px;
-height:22px;
-border-radius:999px;
-display:inline-flex;
-align-items:center;
-justify-content:center;
-font-weight:800;
-font-size:12px;
-position:absolute;
-top:4px;
-right:12px;
+  background:#ffb347;
+  color:black;
+  min-width:22px;
+  height:22px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:12px;
+  position:absolute;
+  top:4px;
+  right:12px;
 }
-
 
 /* order bar */
 #view-order-bar button{ box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-
 
 /* order modal */
 #order-modal .item-row { display:flex; align-items:center; gap:12px; padding:12px 0; }
@@ -56,22 +75,20 @@ right:12px;
 #order-modal .item-row .meta .name { font-weight:700; }
 #order-modal .item-row .meta .qty { color:var(--muted); font-size:13px; }
 
-
 /* responsive tweaks */
 @media(min-width:768px){
-#products { grid-template-columns: repeat(4,1fr); }
+  #products { grid-template-columns: repeat(4,1fr); }
 }
-
 
 /* Checkout full-screen styles (append to styles.css) */
 .checkout-card { box-shadow: 0 -20px 40px rgba(0,0,0,0.6); }
 .checkout-card input, .checkout-card textarea {
-outline: none;
-color: white;
-font-size: 15px;
+  outline: none;
+  color: white;
+  font-size: 15px;
 }
 .checkout-card input::placeholder, .checkout-card textarea::placeholder {
-color: #9ca3af;
+  color: #9ca3af;
 }
 #checkout-items .row { display:flex; align-items:center; gap:12px; padding:12px 0; }
 #checkout-items .row .meta { flex:1; }
