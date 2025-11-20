@@ -1,136 +1,81 @@
-/* ===========================================================
-   DURGERKING — styles.css
-   Tema moderno + suporte Lottie + refinamentos visuais
-   Compatível com index.html e app.js mais recentes
-   =========================================================== */
-
-/* ---------- RESET SUAVE ---------- */
-* {
-  -webkit-tap-highlight-color: transparent;
+/* styles.css — Durger King theme (mobile first) */
+:root{
+  --bg:#000;
+  --muted:#9ca3af;
+  --accent:#f6b26b;
+  --accent-dark:#d99b4d;
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  scroll-behavior: smooth;
-  background: #fff7f5;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial;
+html,body{height:100%}
+body{
+  background:var(--bg);
+  font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  margin:0;
+  color:white;
 }
 
-/* ---------- ROOT COLORS ---------- */
-:root {
-  --primary: #d62828;
-  --accent: #ffd166;
-  --bg: #fff7f5;
-  --muted: #6b6b6b;
-  --card: #ffffff;
-  --radius: 18px;
+/* product card */
+#products .card {
+  background: transparent;
+  border-radius: 14px;
+  padding: 10px;
+  text-align: center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
 }
 
-/* ---------- HEADER ---------- */
-header {
-  backdrop-filter: blur(8px);
+/* lottie size */
+.product-lottie {
+  width:74px;
+  height:74px;
+  margin-bottom:4px;
+  border-radius:12px;
 }
 
-header h1 {
-  letter-spacing: 1px;
+/* product name and price */
+.prod-name { font-weight:700; font-size:13px; }
+.prod-price { color: #ff6b6b; font-weight:800; margin-top:4px; }
+
+/* buttons */
+.btn-add {
+  background:var(--accent);
+  color:black;
+  padding:8px 12px;
+  border-radius:10px;
+  font-weight:700;
+  min-width:86px;
+}
+.btn-dec { background:#e55353; color:white; padding:6px 10px; border-radius:10px; font-weight:800; }
+.qty-bubble {
+  background:#ffb347;
+  color:black;
+  min-width:22px;
+  height:22px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:12px;
+  position:absolute;
+  top:4px;
+  right:12px;
 }
 
-/* ---------- HERO ---------- */
-#heroAnim {
-  max-width: 300px;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-}
+/* order bar */
+#view-order-bar button{ box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 
-/* ---------- CATEGORY SCROLLER ---------- */
-#categories::-webkit-scrollbar {
-  height: 8px;
-}
+/* order modal */
+#order-modal .item-row { display:flex; align-items:center; gap:12px; padding:12px 0; }
+#order-modal .item-row .meta { flex:1; }
+#order-modal .item-row .meta .name { font-weight:700; }
+#order-modal .item-row .meta .qty { color:var(--muted); font-size:13px; }
 
-#categories::-webkit-scrollbar-thumb {
-  background: #e6e6e6;
-  border-radius: 999px;
-}
-
-/* ---------- PRODUCT CARD ---------- */
-#products > div {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-#products > div:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
-}
-
-/* ---------- LOTTIE CANVASES ---------- */
-canvas {
-  display: block;
-}
-
-/* ---------- CART MODAL ---------- */
-#cart-modal,
-#checkout-modal {
-  backdrop-filter: blur(4px);
-}
-
-#cart-modal.flex,
-#checkout-modal.flex {
-  display: flex;
-}
-
-/* ---------- CART SHEET BUTTON ---------- */
-#floating-cart {
-  animation: floatUp 0.4s ease-out;
-}
-
-@keyframes floatUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ---------- TOAST ---------- */
-#toast {
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0);  }
-}
-
-/* ---------- INPUTS ---------- */
-input, textarea {
-  border: 1px solid #dddddd;
-  border-radius: 10px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-input:focus, textarea:focus {
-  border-color: var(--primary);
-}
-
-/* ---------- BUTTONS ---------- */
-button {
-  cursor: pointer;
-  transition: transform 0.1s ease, opacity 0.2s;
-}
-
-button:active {
-  transform: scale(0.95);
-}
-
-/* ---------- RESPONSIVE ---------- */
-@media (min-width: 768px) {
-  #cart-sheet {
-    display: none !important;
-  }
+/* responsive tweaks */
+@media(min-width:768px){
+  #products { grid-template-columns: repeat(4,1fr); }
 }

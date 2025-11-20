@@ -3,136 +3,72 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DurgerKing — Pedido</title>
+  <title>Durger King — Pedido</title>
 
   <!-- Telegram WebApp -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- Tailwind -->
+  <!-- Tailwind (dev) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- DotLottie -->
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-web/+esm"></script>
+  <!-- Lottie web component -->
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
 
   <link rel="stylesheet" href="/styles.css" />
 </head>
-
-<body class="bg-[#fff7f5] text-[#2b2b2b]">
+<body class="bg-black text-white antialiased">
 
   <!-- HEADER -->
-  <header class="fixed top-0 left-0 right-0 z-40 bg-white shadow-md">
+  <header class="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-sm border-b border-white/6">
     <div class="max-w-4xl mx-auto flex items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow">
+          <!-- small animated logo -->
+          <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_ydo1amjm.json"  background="transparent"  speed="1"  style="width:32px; height:32px;"  loop  autoplay></lottie-player>
+        </div>
+        <h1 class="text-lg font-extrabold tracking-wider">Durger King</h1>
+      </div>
 
-      <!-- LOGO ANIMADA -->
-      <canvas id="logoAnim" width="50" height="50" class="rounded"></canvas>
-
-      <h1 class="text-2xl font-extrabold text-[#d62828]">DURGERKING</h1>
-
-      <!-- CARRINHO ANIMADO -->
-      <button id="open-cart-btn" class="relative bg-[#ffd166] px-4 py-2 rounded-lg font-bold shadow flex items-center gap-2">
-        <canvas id="cartAnim" width="30" height="30"></canvas>
-        <span id="cart-count" class="ml-1">0</span>
-      </button>
-
+      <div class="flex items-center gap-3">
+        <div id="cart-pill" class="relative">
+          <button id="open-cart-btn" class="bg-yellow-400 text-black px-3 py-2 rounded-md font-semibold shadow">VIEW</button>
+          <div id="top-badge" class="absolute -top-3 -right-3 bg-orange-500 text-xs font-bold text-black w-6 h-6 rounded-full flex items-center justify-center hidden">0</div>
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- HERO -->
-  <section class="pt-24 pb-6 flex justify-center">
-    <canvas id="heroAnim" width="280" height="280"></canvas>
-  </section>
-
   <!-- MAIN -->
-  <main class="max-w-4xl mx-auto px-4 pb-40">
-
-    <!-- CATEGORIES -->
-    <nav id="categories" class="flex gap-3 overflow-x-auto py-4 mb-4"></nav>
-
-    <!-- PRODUCTS GRID -->
-    <section id="products" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></section>
-
+  <main class="pt-20 pb-36 max-w-4xl mx-auto px-4">
+    <section id="products" class="grid grid-cols-3 gap-4"></section>
   </main>
 
-  <!-- BOTTOM CART (mobile) -->
-  <div id="cart-sheet" class="fixed bottom-4 right-4 z-50">
-    <button id="floating-cart" class="bg-[#d62828] text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-3">
-      <canvas id="floatCartAnim" width="30" height="30"></canvas>
+  <!-- VIEW ORDER BAR -->
+  <div id="view-order-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-3xl hidden">
+    <button id="open-order" class="w-full bg-green-600 text-white py-4 rounded-full text-lg font-bold shadow-lg">VIEW ORDER</button>
+  </div>
+
+  <!-- ORDER MODAL -->
+  <div id="order-modal" class="fixed inset-0 hidden items-end md:items-center justify-center z-50 bg-black/50">
+    <div class="bg-neutral-900 rounded-2xl w-full max-w-2xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-bold">YOUR ORDER</h2>
+        <button id="close-order" class="text-white/70">Close</button>
+      </div>
+
+      <div id="order-items" class="divide-y divide-white/5 max-h-96 overflow-auto mb-4"></div>
+
+      <div class="flex items-center justify-between mt-3 mb-4">
+        <div class="text-lg font-bold">Total</div>
+        <div id="order-total" class="text-xl font-extrabold">$0.00</div>
+      </div>
+
       <div>
-        <div id="floating-total" class="font-bold">R$ 0,00</div>
-        <div class="text-xs opacity-80">Finalizar pedido</div>
+        <button id="pay-btn" class="w-full bg-blue-600 text-white py-3 rounded-md font-bold">PAY</button>
       </div>
-    </button>
-  </div>
-
-  <!-- CART MODAL -->
-  <div id="cart-modal" class="fixed inset-0 bg-black/40 hidden items-end md:items-center justify-center z-50">
-    <div class="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-3/4 max-w-2xl p-4">
-
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="text-xl font-bold">Seu Pedido</h2>
-        <button id="close-cart" class="text-gray-600"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <div id="cart-items" class="divide-y"></div>
-
-      <div class="mt-4">
-        <div class="flex justify-between items-center mb-2">
-          <span class="font-medium">Subtotal</span>
-          <span id="subtotal" class="font-bold">R$ 0,00</span>
-        </div>
-
-        <div class="flex gap-2">
-          <button id="checkout-btn" class="flex-1 bg-[#d62828] text-white px-4 py-3 rounded-md font-bold">Finalizar Pedido</button>
-          <button id="clear-cart" class="flex-1 bg-gray-200 px-4 py-3 rounded-md">Limpar</button>
-        </div>
-      </div>
-
     </div>
   </div>
 
-  <!-- CHECKOUT MODAL -->
-  <div id="checkout-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-2xl w-full max-w-xl p-6">
-
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold">Confirme seu pedido</h3>
-        <button id="close-checkout" class="text-gray-600"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <form id="checkout-form" class="space-y-3">
-
-        <div>
-          <label class="block text-sm font-medium">Nome</label>
-          <input name="name" required class="w-full border rounded px-3 py-2" />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium">Telefone</label>
-          <input name="phone" required class="w-full border rounded px-3 py-2" />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium">Endereço (opcional)</label>
-          <textarea name="address" class="w-full border rounded px-3 py-2"></textarea>
-        </div>
-
-        <div class="flex justify-between items-center pt-2">
-          <div>
-            <div class="text-sm text-gray-600">Total</div>
-            <div id="checkout-total" class="text-2xl font-bold">R$ 0,00</div>
-          </div>
-
-          <button type="submit" class="bg-[#ffd166] px-6 py-3 rounded font-bold">Enviar Pedido</button>
-        </div>
-
-      </form>
-
-    </div>
-  </div>
-
-  <!-- SUCCESS TOAST -->
-  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-3 rounded hidden z-50"></div>
-
-  <script src="/app.js" type="module"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>
