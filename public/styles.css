@@ -79,3 +79,19 @@ body{
 @media(min-width:768px){
   #products { grid-template-columns: repeat(4,1fr); }
 }
+
+/* Checkout full-screen styles (append to styles.css) */
+.checkout-card { box-shadow: 0 -20px 40px rgba(0,0,0,0.6); }
+.checkout-card input, .checkout-card textarea {
+  outline: none;
+  color: white;
+  font-size: 15px;
+}
+.checkout-card input::placeholder, .checkout-card textarea::placeholder {
+  color: #9ca3af;
+}
+#checkout-items .row { display:flex; align-items:center; gap:12px; padding:12px 0; }
+#checkout-items .row .meta { flex:1; }
+#checkout-items .row .meta .name { font-weight:700; }
+#checkout-items .row .meta .sub { color:#9ca3af; font-size:13px;}
+
