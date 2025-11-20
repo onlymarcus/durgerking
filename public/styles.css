@@ -1,0 +1,136 @@
+/* ===========================================================
+   DURGERKING — styles.css
+   Tema moderno + suporte Lottie + refinamentos visuais
+   Compatível com index.html e app.js mais recentes
+   =========================================================== */
+
+/* ---------- RESET SUAVE ---------- */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  scroll-behavior: smooth;
+  background: #fff7f5;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial;
+}
+
+/* ---------- ROOT COLORS ---------- */
+:root {
+  --primary: #d62828;
+  --accent: #ffd166;
+  --bg: #fff7f5;
+  --muted: #6b6b6b;
+  --card: #ffffff;
+  --radius: 18px;
+}
+
+/* ---------- HEADER ---------- */
+header {
+  backdrop-filter: blur(8px);
+}
+
+header h1 {
+  letter-spacing: 1px;
+}
+
+/* ---------- HERO ---------- */
+#heroAnim {
+  max-width: 300px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* ---------- CATEGORY SCROLLER ---------- */
+#categories::-webkit-scrollbar {
+  height: 8px;
+}
+
+#categories::-webkit-scrollbar-thumb {
+  background: #e6e6e6;
+  border-radius: 999px;
+}
+
+/* ---------- PRODUCT CARD ---------- */
+#products > div {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#products > div:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- LOTTIE CANVASES ---------- */
+canvas {
+  display: block;
+}
+
+/* ---------- CART MODAL ---------- */
+#cart-modal,
+#checkout-modal {
+  backdrop-filter: blur(4px);
+}
+
+#cart-modal.flex,
+#checkout-modal.flex {
+  display: flex;
+}
+
+/* ---------- CART SHEET BUTTON ---------- */
+#floating-cart {
+  animation: floatUp 0.4s ease-out;
+}
+
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- TOAST ---------- */
+#toast {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);  }
+}
+
+/* ---------- INPUTS ---------- */
+input, textarea {
+  border: 1px solid #dddddd;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--primary);
+}
+
+/* ---------- BUTTONS ---------- */
+button {
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.2s;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (min-width: 768px) {
+  #cart-sheet {
+    display: none !important;
+  }
+}
