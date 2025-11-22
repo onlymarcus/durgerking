@@ -2,129 +2,25 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QueroComida — Pedido</title>
-
-  <!-- Telegram WebApp SDK -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Cardápio</title>
+  
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Lottie -->
-  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
-
-  <!-- DurgerKing Style (seu styles.css) -->
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body class="bg-black text-white antialiased">
+<body>
 
-  <!-- HEADER -->
-  <header class="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-sm border-b border-white/5">
-    <div class="max-w-4xl mx-auto flex items-center justify-between px-4 py-3">
+  <section class="cafe-items" id="products-container">
+    </section>
 
-      <!-- Logo + Nome -->
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow">
-          <lottie-player src="/img/logo_lottie.json" background="transparent" speed="1" style="width:32px;height:32px" loop autoplay></lottie-player>
-        </div>
-
-        <h1 class="text-lg font-extrabold tracking-wider">QueroComida</h1>
-      </div>
-
-      <!-- Carrinho -->
-      <div class="flex items-center gap-3">
-        <div id="cart-pill" class="relative">
-          <button id="open-cart-btn" class="bg-yellow-400 text-black px-3 py-2 rounded-md font-semibold shadow">VIEW</button>
-          <div id="top-badge"
-            class="absolute -top-3 -right-3 bg-orange-500 text-xs font-bold text-black w-6 h-6 rounded-full flex items-center justify-center hidden">
-            0
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </header>
-
-  <!-- MAIN PRODUCTS -->
-  <main class="pt-20 pb-36 max-w-4xl mx-auto px-4">
-    <section id="products" class="grid grid-cols-3 gap-4"></section>
-  </main>
-
-  <!-- VIEW ORDER BAR -->
-  <div id="view-order-bar"
-    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-3xl hidden">
-    <button id="open-order"
-      class="w-full bg-green-600 text-white py-4 rounded-full text-lg font-bold shadow-lg">VIEW ORDER</button>
-  </div>
-
-  <!-- ORDER MODAL -->
-  <div id="order-modal"
-    class="fixed inset-0 hidden items-center justify-center z-50 bg-black/70">
-
-    <div class="checkout-card bg-neutral-900 rounded-t-2xl w-full max-w-2xl h-[90vh] overflow-auto p-4">
-
-      <!-- Top bar -->
-      <div class="flex items-center justify-between mb-3">
-        <button id="close-order" class="text-white/70">Cancelar</button>
-        <h2 class="text-lg font-bold">Finalizar Pedido</h2>
-        <div style="width:44px"></div>
-      </div>
-
-      <!-- Title card -->
-      <div class="rounded-xl bg-neutral-800 p-3 mb-4 flex gap-3">
-        <div id="checkout-thumb"
-          style="width:96px;height:96px;border-radius:12px;overflow:hidden;background:#111"></div>
-
-        <div class="flex-1">
-          <div id="checkout-title" class="font-bold text-lg">Seu Pedido</div>
-          <div id="checkout-sub" class="text-sm text-neutral-400">Confira os itens antes de enviar</div>
-          <div id="checkout-est" class="text-xs text-neutral-500 mt-1">QueroComida</div>
-        </div>
-      </div>
-
-      <!-- Items List -->
-      <div id="checkout-items" class="mb-4 divide-y divide-white/5"></div>
-
-      <!-- Total -->
-      <div class="flex justify-between items-center mt-3 mb-4">
-        <div class="text-sm text-neutral-400">Total</div>
-        <div id="checkout-total" class="text-xl font-extrabold">R$ 0,00</div>
-      </div>
-
-      <!-- Form -->
-      <div class="space-y-3 mb-4">
-
-        <label class="text-sm text-neutral-300">Endereço</label>
-        <input id="field-address" placeholder="Rua, número, complemento"
-          class="w-full p-3 rounded-md bg-neutral-800 border border-white/10" />
-
-        <label class="text-sm text-neutral-300">Nome</label>
-        <input id="field-name" placeholder="Seu nome"
-          class="w-full p-3 rounded-md bg-neutral-800 border border-white/10" />
-
-        <label class="text-sm text-neutral-300">Telefone</label>
-        <input id="field-phone" placeholder="+55 9xxxx-xxxx"
-          class="w-full p-3 rounded-md bg-neutral-800 border border-white/10" />
-
-        <label class="text-sm text-neutral-300">Observações</label>
-        <textarea id="field-note" placeholder="Instruções adicionais"
-          class="w-full p-3 rounded-md bg-neutral-800 border border-white/10" rows="3"></textarea>
-      </div>
-
-      <!-- Submit -->
-      <div class="mt-4 pb-6">
-        <button id="submit-order"
-          class="w-full bg-green-600 text-white py-4 rounded-full font-bold text-lg">
-          Finalizar <span id="submit-amount">R$ 0,00</span>
-        </button>
-      </div>
-
+  <div class="cafe-status-wrap">
+    <div class="cafe-status" id="view-order-btn">
+      VER PEDIDO (<span id="total-price">R$ 0.00</span>)
     </div>
   </div>
 
-  <!-- JAVASCRIPT -->
   <script type="module" src="/app.js"></script>
 
 </body>
