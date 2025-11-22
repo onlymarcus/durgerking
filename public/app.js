@@ -1,10 +1,14 @@
 // Configurações e Estado
-const API_PRODUCTS = '/api/products';
-const API_ORDER = '/api/order';
+const API_BASE = '/api'; // Base da API
+
+// Lógica para pegar o ID da loja na URL (?loja=2)
+const urlParams = new URLSearchParams(window.location.search);
+// Se tiver ?loja=X usa X, senão usa 1 como padrão
+const CURRENT_ESTABLISHMENT_ID = urlParams.get('loja') || 1;
 
 let products = [];
-let cart = {}; // { id: quantidade }
-let appState = 'shop'; // 'shop' ou 'checkout'
+let cart = {}; 
+let appState = 'shop'; 
 
 // Elementos do DOM
 const shopPage = document.getElementById('shop-page');
@@ -12,7 +16,6 @@ const checkoutPage = document.getElementById('checkout-page');
 const mainBtn = document.getElementById('main-btn');
 const orderListEl = document.getElementById('order-list');
 const editBtn = document.getElementById('btn-edit');
-
 // Inputs
 const inputName = document.getElementById('customer-name');
 const inputPhone = document.getElementById('customer-phone');
@@ -26,10 +29,12 @@ const inputComment = document.getElementById('comment-field');
         window.Telegram.WebApp.expand();
     }
 
+    console.log("Carregando loja ID:", CURRENT_ESTABLISHMENT_ID);
+
     loadUserData();
     await loadProducts();
     loadCart();
-
+    
     renderShop();
     updateMainButton();
 
@@ -41,26 +46,30 @@ const inputComment = document.getElementById('comment-field');
 // --- DADOS ---
 async function loadProducts() {
     try {
-        const res = await fetch(API_PRODUCTS);
+        // Passamos o establishment_id na query string para a API saber qual loja buscar
+        const res = await fetch(`${API_BASE}/products?establishment_id=${CURRENT_ESTABLISHMENT_ID}`);
         products = await res.json();
-    } catch (e) {
-        console.error("Erro api:", e);
-    }
+    } catch (e) { console.error("Erro api:", e); }
 }
 
 // --- RENDERIZAÇÃO ---
 function renderShop() {
     shopPage.innerHTML = '';
-
+    
+    if(products.length === 0) {
+        shopPage.innerHTML = '<div style="width:100%;text-align:center;padding:20px;">Nenhum produto encontrado nesta loja.</div>';
+        return;
+    }
+    
     products.forEach(p => {
         const qty = cart[p.id] || 0;
         const isSelected = qty > 0 ? 'selected' : '';
         const priceFormatted = (p.price_cents / 100).toFixed(2);
-
+        
         const card = document.createElement('div');
         card.className = `cafe-item ${isSelected}`;
         card.dataset.id = p.id;
-
+        
         card.innerHTML = `
             <div class="cafe-item-counter">${qty}</div>
             <div class="cafe-item-photo">
@@ -90,10 +99,10 @@ function renderShop() {
 
 function renderCheckoutList() {
     orderListEl.innerHTML = '';
-
+    
     Object.entries(cart).forEach(([id, qty]) => {
         const p = products.find(x => x.id == id);
-        if (!p) return;
+        if(!p) return;
 
         const totalItem = (p.price_cents * qty) / 100;
 
@@ -103,7 +112,7 @@ function renderCheckoutList() {
             <div class="cafe-order-item-photo"><img src="${p.image_url}"></div>
             <div class="cafe-order-item-label">
                 <div class="cafe-order-item-title">${p.name} <span class="cafe-order-item-counter">${qty}x</span></div>
-                <div class="cafe-order-item-description">R$ ${(p.price_cents / 100).toFixed(2)} cada</div>
+                <div class="cafe-order-item-description">R$ ${(p.price_cents/100).toFixed(2)} cada</div>
             </div>
             <div class="cafe-order-item-price">R$ ${totalItem.toFixed(2)}</div>
         `;
@@ -118,24 +127,23 @@ function updateQty(id, delta) {
     if (cart[id] <= 0) delete cart[id];
 
     saveCart();
-
-    // Atualiza APENAS o card que mudou
+    
     const card = document.querySelector(`.cafe-item[data-id="${id}"]`);
     if (card) {
         const qty = cart[id] || 0;
         const counter = card.querySelector('.cafe-item-counter');
         counter.innerText = qty;
-
+        
         if (qty > 0) card.classList.add('selected');
         else card.classList.remove('selected');
     }
-
+    
     updateMainButton();
 }
 
 function switchView(view) {
     appState = view;
-    window.scrollTo(0, 0);
+    window.scrollTo(0,0);
 
     if (view === 'shop') {
         shopPage.style.display = 'flex';
@@ -155,26 +163,26 @@ function updateMainButton() {
         return acc + (p ? p.price_cents * qty : 0);
     }, 0);
 
-    const totalFormatted = `R$ ${(totalCents / 100).toFixed(2)}`;
+    const totalFormatted = `R$ ${(totalCents/100).toFixed(2)}`;
 
     if (totalCents === 0) {
         mainBtn.classList.remove('shown');
-        if (window.Telegram?.WebApp) window.Telegram.WebApp.MainButton.hide();
+        if(window.Telegram?.WebApp) window.Telegram.WebApp.MainButton.hide();
         return;
     }
 
     mainBtn.classList.add('shown');
-
+    
     if (appState === 'shop') {
         mainBtn.innerText = `VER PEDIDO (${totalFormatted})`;
-        if (window.Telegram?.WebApp) {
+        if(window.Telegram?.WebApp) {
             window.Telegram.WebApp.MainButton.setText(`VER PEDIDO (${totalFormatted})`);
             window.Telegram.WebApp.MainButton.show();
             window.Telegram.WebApp.MainButton.onClick(handleMainButtonClick);
         }
     } else {
         mainBtn.innerText = `PAGAR ${totalFormatted}`;
-        if (window.Telegram?.WebApp) {
+        if(window.Telegram?.WebApp) {
             window.Telegram.WebApp.MainButton.setText(`PAGAR ${totalFormatted}`);
         }
     }
@@ -197,11 +205,8 @@ async function submitOrder() {
     saveUserData();
 
     const payload = {
-        establishment_id: 1,
-        items: Object.entries(cart).map(([id, qty]) => ({
-            product_id: id,
-            qty
-        })),
+        establishment_id: CURRENT_ESTABLISHMENT_ID, // AGORA É DINÂMICO!
+        items: Object.entries(cart).map(([id, qty]) => ({ product_id: id, qty })),
         customer: {
             name: inputName.value,
             phone: inputPhone.value,
@@ -216,21 +221,19 @@ async function submitOrder() {
 
     const originalText = mainBtn.innerText;
     mainBtn.innerText = "ENVIANDO...";
-
+    
     try {
-        const r = await fetch(API_ORDER, {
+        // Envia para /api/order
+        const r = await fetch(`${API_BASE}/order`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         });
         const data = await r.json();
 
-        if (data.ok) {
-            cart = {};
-            saveCart();
-            if (window.Telegram?.WebApp) window.Telegram.WebApp.close();
+        if(data.ok) {
+            cart = {}; saveCart();
+            if(window.Telegram?.WebApp) window.Telegram.WebApp.close();
             else {
                 alert("Pedido Enviado com Sucesso!");
                 window.location.reload();
@@ -239,34 +242,34 @@ async function submitOrder() {
             alert("Erro: " + (data.error || "Desconhecido"));
             mainBtn.innerText = originalText;
         }
-    } catch (e) {
+    } catch(e) {
         alert("Erro de conexão. Tente novamente.");
         mainBtn.innerText = originalText;
     }
 }
 
-// --- Storage Helpers ---
-function saveCart() {
-    localStorage.setItem('cart_v3', JSON.stringify(cart));
+// --- Storage Helpers (Agora salva o carrinho POR LOJA para não misturar) ---
+function saveCart() { 
+    // Usa o ID da loja no nome do storage: cart_shop_1, cart_shop_2...
+    localStorage.setItem(`cart_shop_${CURRENT_ESTABLISHMENT_ID}`, JSON.stringify(cart)); 
 }
 
-function loadCart() {
-    try {
-        cart = JSON.parse(localStorage.getItem('cart_v3') || '{}');
-    } catch (e) {}
+function loadCart() { 
+    try { 
+        cart = JSON.parse(localStorage.getItem(`cart_shop_${CURRENT_ESTABLISHMENT_ID}`) || '{}'); 
+    } catch(e){} 
 }
 
 function loadUserData() {
     const data = JSON.parse(localStorage.getItem('user_data') || '{}');
-    if (data.name) inputName.value = data.name;
-    if (data.phone) inputPhone.value = data.phone;
-    if (data.address) inputAddress.value = data.address;
-
+    if(data.name) inputName.value = data.name;
+    if(data.phone) inputPhone.value = data.phone;
+    if(data.address) inputAddress.value = data.address;
+    
     if (window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name && !inputName.value) {
         inputName.value = window.Telegram.WebApp.initDataUnsafe.user.first_name;
     }
 }
-
 function saveUserData() {
     localStorage.setItem('user_data', JSON.stringify({
         name: inputName.value,
