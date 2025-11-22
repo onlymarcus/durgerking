@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Cardápio</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+  <section id="shop-page" class="cafe-items">
+    </section>
+
+
+  <section id="checkout-page" class="cafe-order-overview">
+    
+    <div class="cafe-order-header-wrap">
+      <span class="cafe-order-header">SEU PEDIDO</span>
+      <span class="cafe-order-edit" id="btn-edit">Edit</span>
+    </div>
+
+    <div id="order-list"></div>
+
+    <div class="cafe-text-field-wrap">
+      <input class="cafe-text-field" id="comment-field" type="text" placeholder="Adicionar comentário..." />
+    </div>
+
+    <div class="cafe-order-header-wrap" style="margin-top: 20px;">
+      <span class="cafe-order-header">DETALHES DA ENTREGA</span>
+    </div>
+
+    <div class="cafe-text-field-wrap">
+        <div class="cafe-input-header">Nome</div>
+        <input class="cafe-text-field" id="customer-name" type="text" placeholder="Seu Nome" />
+        
+        <div class="cafe-input-header">Telefone</div>
+        <input class="cafe-text-field" id="customer-phone" type="tel" placeholder="+55..." />
+        
+        <div class="cafe-input-header">Endereço</div>
+        <textarea class="cafe-text-field" id="customer-address" rows="2" placeholder="Rua, Número, Bairro..."></textarea>
+    </div>
+
+  </section>
+
+
+  <div class="cafe-status-wrap">
+    <div class="cafe-status" id="main-btn">
+      VER PEDIDO
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
