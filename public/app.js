@@ -1,208 +1,258 @@
-// Configurações
-const API_URL = '/api/products';
+// Configurações e Estado
+const API_PRODUCTS = '/api/products';
 const API_ORDER = '/api/order';
 
 let products = [];
-let cart = {}; // Estrutura: { id_produto: quantidade }
+let cart = {}; // { id: quantidade }
+let appState = 'shop'; // 'shop' ou 'checkout'
 
-// Elementos do DOM
-const container = document.getElementById('products-container');
-const viewOrderBtn = document.getElementById('view-order-btn');
-const totalPriceSpan = document.getElementById('total-price');
+// Elementos
+const shopPage = document.getElementById('shop-page');
+const checkoutPage = document.getElementById('checkout-page');
+const mainBtn = document.getElementById('main-btn');
+const orderListEl = document.getElementById('order-list');
+const editBtn = document.getElementById('btn-edit');
 
-// 1. Inicia a Aplicação
+// Inputs
+const inputName = document.getElementById('customer-name');
+const inputPhone = document.getElementById('customer-phone');
+const inputAddress = document.getElementById('customer-address');
+const inputComment = document.getElementById('comment-field');
+
+// --- INICIALIZAÇÃO ---
 (async function init() {
-    // Configura Telegram
     if (window.Telegram && window.Telegram.WebApp) {
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
     }
 
-    // Carrega produtos do servidor
+    // Carrega dados salvos do usuário (Nome/Tel/Endereço)
+    loadUserData();
+
     await loadProducts();
+    loadCart();
     
-    // Restaura carrinho se existir (opcional)
-    loadCartFromStorage();
-    
-    // Renderiza
-    renderProducts();
+    renderShop();
     updateMainButton();
 
-    // Evento do botão View Order
-    viewOrderBtn.addEventListener('click', checkout);
+    // Eventos
+    mainBtn.addEventListener('click', handleMainButtonClick);
+    editBtn.addEventListener('click', () => switchView('shop'));
 })();
 
-// 2. Busca Produtos
+// --- FUNÇÕES DE DADOS ---
 async function loadProducts() {
     try {
-        const res = await fetch(API_URL);
+        const res = await fetch(API_PRODUCTS);
         products = await res.json();
-    } catch (e) {
-        console.error("Erro ao buscar produtos", e);
-        alert("Erro ao carregar cardápio.");
+    } catch (e) { console.error(e); }
+}
+
+function loadUserData() {
+    const data = JSON.parse(localStorage.getItem('user_data') || '{}');
+    if(data.name) inputName.value = data.name;
+    if(data.phone) inputPhone.value = data.phone;
+    if(data.address) inputAddress.value = data.address;
+
+    // Se tiver Telegram, tenta pegar o primeiro nome
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name && !inputName.value) {
+        inputName.value = window.Telegram.WebApp.initDataUnsafe.user.first_name;
     }
 }
 
-// 3. Renderiza na tela (ESTILO DURGER KING)
-function renderProducts() {
-    container.innerHTML = '';
+function saveUserData() {
+    const data = {
+        name: inputName.value,
+        phone: inputPhone.value,
+        address: inputAddress.value
+    };
+    localStorage.setItem('user_data', JSON.stringify(data));
+}
 
+// --- RENDERIZAÇÃO ---
+function renderShop() {
+    shopPage.innerHTML = '';
     products.forEach(p => {
         const qty = cart[p.id] || 0;
-        const priceFormatted = (p.price_cents / 100).toFixed(2);
         const isSelected = qty > 0 ? 'selected' : '';
-
-        // Cria o Card
+        
         const card = document.createElement('div');
         card.className = `cafe-item ${isSelected}`;
         card.dataset.id = p.id;
-
         card.innerHTML = `
             <div class="cafe-item-counter">${qty}</div>
-            
-            <div class="cafe-item-photo">
-                <img src="${p.image_url}" class="cafe-item-img" alt="${p.name}">
-            </div>
-            
+            <div class="cafe-item-photo"><img src="${p.image_url}" class="cafe-item-img"></div>
             <div class="cafe-item-label">
                 <span class="cafe-item-title">${p.name}</span>
-                <span class="cafe-item-price">${priceFormatted}</span>
+                <span class="cafe-item-price">R$ ${(p.price_cents/100).toFixed(2)}</span>
             </div>
-            
             <div class="cafe-item-buttons">
-                <button class="cafe-item-decr-button"></button>
-                <button class="cafe-item-incr-button">
+                <button class="cafe-item-decr-button" onclick="updateQty(${p.id}, -1)"></button>
+                <button class="cafe-item-incr-button" onclick="updateQty(${p.id}, 1)">
                     <span class="button-item-label">ADD</span>
                 </button>
             </div>
         `;
-
-        // Eventos dos botões
-        const btnAdd = card.querySelector('.cafe-item-incr-button');
-        const btnDec = card.querySelector('.cafe-item-decr-button');
-
-        btnAdd.onclick = () => updateQty(p, 1);
-        btnDec.onclick = () => updateQty(p, -1);
-
-        container.appendChild(card);
+        shopPage.appendChild(card);
     });
 }
 
-// 4. Atualiza Quantidade
-function updateQty(product, change) {
-    if (!cart[product.id]) cart[product.id] = 0;
-    cart[product.id] += change;
+function renderCheckoutList() {
+    orderListEl.innerHTML = '';
+    let total = 0;
 
-    if (cart[product.id] <= 0) {
-        delete cart[product.id];
+    Object.entries(cart).forEach(([id, qty]) => {
+        const p = products.find(x => x.id == id);
+        if(!p) return;
+
+        const itemTotal = (p.price_cents * qty) / 100;
+        total += itemTotal;
+
+        const row = document.createElement('div');
+        row.className = 'cafe-order-item';
+        row.innerHTML = `
+            <div class="cafe-order-item-photo"><img src="${p.image_url}"></div>
+            <div class="cafe-order-item-label">
+                <div class="cafe-order-item-title">${p.name} <span class="cafe-order-item-counter">${qty}x</span></div>
+                <div class="cafe-order-item-description">Opções padrão</div>
+            </div>
+            <div class="cafe-order-item-price">R$ ${itemTotal.toFixed(2)}</div>
+        `;
+        orderListEl.appendChild(row);
+    });
+}
+
+// --- LÓGICA PRINCIPAL ---
+window.updateQty = function(id, delta) {
+    if(!cart[id]) cart[id] = 0;
+    cart[id] += delta;
+    if(cart[id] <= 0) delete cart[id];
+
+    saveCart();
+    
+    // Atualiza visualmente apenas o card afetado (otimização)
+    const card = document.querySelector(`.cafe-item[data-id="${id}"]`);
+    if(card) {
+        const qty = cart[id] || 0;
+        card.querySelector('.cafe-item-counter').innerText = qty;
+        if(qty > 0) card.classList.add('selected');
+        else card.classList.remove('selected');
     }
-
-    // Salva e Atualiza UI
-    saveCartToStorage();
-    updateCardVisual(product.id);
+    
     updateMainButton();
 }
 
-// 5. Atualiza visual de UM card específico (para não recarregar tudo)
-function updateCardVisual(id) {
-    const card = document.querySelector(`.cafe-item[data-id="${id}"]`);
-    if (!card) return;
+function switchView(view) {
+    appState = view;
+    window.scrollTo(0,0);
 
-    const qty = cart[id] || 0;
-    const counter = card.querySelector('.cafe-item-counter');
-    
-    counter.innerText = qty;
-
-    if (qty > 0) {
-        card.classList.add('selected');
+    if (view === 'shop') {
+        shopPage.style.display = 'flex';
+        checkoutPage.style.display = 'none';
     } else {
-        card.classList.remove('selected');
+        shopPage.style.display = 'none';
+        checkoutPage.style.display = 'block';
+        renderCheckoutList();
     }
+    updateMainButton();
 }
 
-// 6. Barra Inferior (Total)
 function updateMainButton() {
-    let totalCents = 0;
-    let count = 0;
-
-    for (const [id, qty] of Object.entries(cart)) {
+    const totalCents = Object.entries(cart).reduce((acc, [id, qty]) => {
         const p = products.find(x => x.id == id);
-        if (p) {
-            totalCents += p.price_cents * qty;
-            count += qty;
-        }
+        return acc + (p ? p.price_cents * qty : 0);
+    }, 0);
+
+    const totalFormatted = `R$ ${(totalCents/100).toFixed(2)}`;
+
+    if (totalCents === 0) {
+        mainBtn.classList.remove('shown');
+        if(window.Telegram?.WebApp) window.Telegram.WebApp.MainButton.hide();
+        return;
     }
 
-    totalPriceSpan.innerText = `R$ ${(totalCents / 100).toFixed(2)}`;
-
-    if (count > 0) {
-        viewOrderBtn.classList.add('shown');
-        // Se estiver no Telegram, usa o MainButton nativo também
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.MainButton.setText(`VER PEDIDO (R$ ${(totalCents / 100).toFixed(2)})`);
+    mainBtn.classList.add('shown');
+    
+    if (appState === 'shop') {
+        mainBtn.innerText = `VER PEDIDO (${totalFormatted})`;
+        // Telegram Nativo
+        if(window.Telegram?.WebApp) {
+            window.Telegram.WebApp.MainButton.setText(`VER PEDIDO (${totalFormatted})`);
             window.Telegram.WebApp.MainButton.show();
-            window.Telegram.WebApp.MainButton.onClick(checkout);
+            window.Telegram.WebApp.MainButton.onClick(handleMainButtonClick);
         }
     } else {
-        viewOrderBtn.classList.remove('shown');
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.MainButton.hide();
+        mainBtn.innerText = `PAGAR ${totalFormatted}`;
+        if(window.Telegram?.WebApp) {
+            window.Telegram.WebApp.MainButton.setText(`PAGAR ${totalFormatted}`);
         }
     }
 }
 
-// 7. Checkout (Envia Pedido)
-async function checkout() {
-    if (Object.keys(cart).length === 0) return;
+function handleMainButtonClick() {
+    if (appState === 'shop') {
+        switchView('checkout');
+    } else {
+        submitOrder();
+    }
+}
 
-    // Prepara dados para enviar ao servidor
-    const items = Object.entries(cart).map(([id, qty]) => {
-        return { product_id: id, qty: qty };
-    });
+async function submitOrder() {
+    // Validação Simples
+    if (!inputName.value || !inputPhone.value) {
+        alert("Por favor, preencha seu nome e telefone.");
+        return;
+    }
+
+    // Salva dados para a próxima
+    saveUserData();
 
     const payload = {
         establishment_id: 1,
-        items: items,
-        customer: { name: "Cliente Web", phone: "00000000" } // Aqui você pode abrir um modal para pedir dados
+        items: Object.entries(cart).map(([id, qty]) => ({ product_id: id, qty })),
+        customer: {
+            name: inputName.value,
+            phone: inputPhone.value,
+            address: inputAddress.value,
+            note: inputComment.value
+        }
     };
-    
-    if (window.Telegram && window.Telegram.WebApp) {
+
+    if (window.Telegram?.WebApp) {
         payload.telegram_user = window.Telegram.WebApp.initDataUnsafe?.user;
     }
 
-    if(confirm("Deseja finalizar o pedido?")) {
-         try {
-            const res = await fetch(API_ORDER, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const json = await res.json();
+    mainBtn.innerText = "ENVIANDO...";
+    
+    try {
+        const r = await fetch(API_ORDER, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await r.json();
 
-            if (json.ok) {
-                alert(`Pedido #${json.order_id} enviado com sucesso!`);
-                cart = {};
-                saveCartToStorage();
-                renderProducts();
-                updateMainButton();
-                if (window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close();
-            } else {
-                alert("Erro: " + (json.error || "Desconhecido"));
+        if(data.ok) {
+            cart = {}; saveCart();
+            // Fecha o WebApp
+            if(window.Telegram?.WebApp) window.Telegram.WebApp.close();
+            else {
+                alert("Pedido Enviado!");
+                window.location.reload();
             }
-        } catch (e) {
-            alert("Erro de conexão");
+        } else {
+            alert("Erro: " + data.error);
         }
+    } catch(e) {
+        alert("Erro de conexão");
+    } finally {
+        updateMainButton();
     }
 }
 
-// --- Storage ---
-function saveCartToStorage() {
-    localStorage.setItem('cart_v3', JSON.stringify(cart));
-}
+// Helpers Storage
+function saveCart() { localStorage.setItem('cart_v3', JSON.stringify(cart)); }
+function loadCart() { try { cart = JSON.parse(localStorage.getItem('cart_v3') || '{}'); } catch(e){} }
 
-function loadCartFromStorage() {
-    try {
-        const s = localStorage.getItem('cart_v3');
-        if (s) cart = JSON.parse(s);
-    } catch (e) { cart = {}; }
-}
+// Expor funcões globais para o HTML
+window.updateQty = updateQty;
