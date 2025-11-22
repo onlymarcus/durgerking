@@ -25,7 +25,9 @@ const PORT = process.env.PORT || 3000;
 /* =====================================
    SECURITY MIDDLEWARES
 ===================================== */
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 app.use(cors({ origin: "*", credentials: true }));
 
 app.use(rateLimit({
