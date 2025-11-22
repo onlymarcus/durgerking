@@ -291,7 +291,61 @@ app.post('/api/admin/update-order', async (req, res) => {
       conn.release();
     }
 });
+/* =====================================
+   ADMIN API — GESTÃO DE PRODUTOS (CRUD)
+===================================== */
 
+// 1. SALVAR PRODUTO (Cria ou Atualiza)
+app.post('/api/admin/product', async (req, res) => {
+    const { id, establishment_id, name, description, price, image_url } = req.body;
+
+    // Converte "25.50" para 2550 centavos
+    const price_cents = Math.round(parseFloat(price) * 100);
+
+    if (!establishment_id || !name || !price_cents) {
+        return res.status(400).json({ error: 'missing_data' });
+    }
+
+    const conn = await pool.getConnection();
+    try {
+        if (id) {
+            // EDITAR existente
+            await conn.query(
+                `UPDATE products SET name=?, description=?, price_cents=?, image_url=? 
+                 WHERE id=? AND establishment_id=?`,
+                [name, description, price_cents, image_url, id, establishment_id]
+            );
+        } else {
+            // CRIAR novo
+            await conn.query(
+                `INSERT INTO products (establishment_id, name, description, price_cents, image_url, active) 
+                 VALUES (?, ?, ?, ?, ?, 1)`,
+                [establishment_id, name, description, price_cents, image_url]
+            );
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'db_error' });
+    } finally {
+        conn.release();
+    }
+});
+
+// 2. DELETAR PRODUTO
+app.post('/api/admin/product/delete', async (req, res) => {
+    const { id, establishment_id } = req.body;
+    try {
+        // Verifica establishment_id por segurança para não apagar produto de outro
+        await pool.query(
+            "DELETE FROM products WHERE id=? AND establishment_id=?", 
+            [id, establishment_id]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: 'db_error' });
+    }
+});
 /* =====================================
    START SERVER
 ===================================== */
