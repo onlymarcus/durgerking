@@ -1,7 +1,10 @@
 /******************************************************
- * SERVER.JS — Versão SAAS (Com Friendly ID)
+ * SERVER.JS — Versão FINAL (SAAS + Friendly ID + Admin)
  * ----------------------------------------------------
- * Agora calcula o pedido #1, #2 para cada loja separadamente
+ * Inclui:
+ * 1. Múltiplas lojas (SAAS)
+ * 2. IDs amigáveis por loja (#1, #2...)
+ * 3. API do Painel Admin (Listar e Atualizar)
  ******************************************************/
 
 require('dotenv').config();
@@ -105,7 +108,6 @@ app.post('/api/order', async (req, res) => {
     }
 
     /* 2.5) CALCULA O ID AMIGÁVEL DA LOJA */
-    // Busca o maior friendly_id DESTA loja e soma 1. Se não tiver nenhum, começa do 1.
     const [maxIdResult] = await conn.query(
         "SELECT MAX(friendly_id) as maxId FROM orders WHERE establishment_id = ?",
         [lojaId]
@@ -130,11 +132,11 @@ app.post('/api/order', async (req, res) => {
         customer?.phone || null,
         customer?.address || null,
         serverTotal,
-        nextFriendlyId // <--- Salvamos o ID sequencial aqui
+        nextFriendlyId 
       ]
     );
 
-    const globalOrderId = orderRes.insertId; // ID Global (ex: 27)
+    const globalOrderId = orderRes.insertId; 
 
     const insertItems = items.map(it => {
       const pid = Number(it.product_id);
@@ -150,11 +152,10 @@ app.post('/api/order', async (req, res) => {
     await Promise.all(insertItems);
     await conn.commit();
 
-    /* 4) NOTIFICAÇÃO SAAS */
+    /* 4) NOTIFICA O DONO */
     if (store.bot_token && store.owner_telegram_id) {
         try {
             const tempBot = new Bot(store.bot_token);
-
             const itemsText = items.map(i => {
                 const pid = Number(i.product_id);
                 const p = byId[pid];
@@ -162,7 +163,6 @@ app.post('/api/order', async (req, res) => {
                 return `• ${qty}x ${p.name}`;
             }).join("\n");
 
-            // MUDANÇA AQUI: Usamos nextFriendlyId no título
             const msg = `🔔 *NOVO PEDIDO #${nextFriendlyId}*\n` +
                         `🏠 *Loja:* ${store.name}\n\n` +
                         `👤 *Cliente:* ${customer?.name || "Anônimo"}\n` +
@@ -173,13 +173,11 @@ app.post('/api/order', async (req, res) => {
                         `💰 *Total:* R$ ${(serverTotal / 100).toFixed(2)}`;
 
             await tempBot.api.sendMessage(store.owner_telegram_id, msg, { parse_mode: "Markdown" });
-            console.log(`Pedido Global #${globalOrderId} (Loja #${nextFriendlyId}) notificado.`);
         } catch (botError) {
             console.error(`Erro Telegram loja ${lojaId}:`, botError.message);
         }
     }
 
-    // Retornamos os dois IDs caso o front precise
     res.json({ ok: true, order_id: nextFriendlyId, global_id: globalOrderId });
 
   } catch (err) {
@@ -189,6 +187,107 @@ app.post('/api/order', async (req, res) => {
   } finally {
     conn.release();
   }
+});
+
+/* =====================================
+   ADMIN API — LISTAR PEDIDOS DA LOJA
+   (Usado pelo Painel admin.html)
+===================================== */
+app.get('/api/admin/orders/:establishment_id', async (req, res) => {
+    const { establishment_id } = req.params;
+  
+    try {
+      const [orders] = await pool.query(
+        `SELECT id, friendly_id, customer_name, customer_phone, customer_address, 
+                total_cents, status, tracking_url, created_at 
+         FROM orders 
+         WHERE establishment_id = ? 
+         ORDER BY id DESC LIMIT 50`,
+        [establishment_id]
+      );
+  
+      // Busca itens
+      const ordersWithItems = await Promise.all(orders.map(async (order) => {
+          const [items] = await pool.query(
+              "SELECT name, qty FROM order_items WHERE order_id = ?",
+              [order.id]
+          );
+          return { ...order, items };
+      }));
+  
+      res.json(ordersWithItems);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'server_error' });
+    }
+});
+
+/* =====================================
+   ADMIN API — ATUALIZAR STATUS + RASTREIO
+   (Usado pelo Painel admin.html)
+===================================== */
+app.post('/api/admin/update-order', async (req, res) => {
+    const { order_id, status, tracking_url } = req.body;
+  
+    if (!order_id || !status) return res.status(400).json({ error: 'missing_data' });
+  
+    const conn = await pool.getConnection();
+    try {
+      // 1. Busca dados do pedido e da loja
+      const [orders] = await conn.query(
+          `SELECT o.*, e.bot_token 
+           FROM orders o
+           JOIN establishments e ON o.establishment_id = e.id
+           WHERE o.id = ?`, 
+          [order_id]
+      );
+  
+      if (orders.length === 0) return res.status(404).json({ error: 'order_not_found' });
+      const order = orders[0];
+  
+      // 2. Atualiza no Banco
+      await conn.query(
+          "UPDATE orders SET status = ?, tracking_url = ? WHERE id = ?",
+          [status, tracking_url || null, order_id]
+      );
+  
+      // 3. NOTIFICA O CLIENTE
+      if (order.telegram_user_id && order.bot_token) {
+          try {
+              const tempBot = new Bot(order.bot_token);
+              let msg = "";
+              // Usamos friendly_id para o cliente não estranhar o número
+              const numPedido = order.friendly_id || order.id;
+  
+              if (status === 'preparing') {
+                  msg = `👨‍🍳 *Pedido #${numPedido} em preparação!* \nSua comida já está sendo feita.`;
+              } 
+              else if (status === 'delivering') {
+                  msg = `🛵 *Pedido #${numPedido} SAIU PARA ENTREGA!*`;
+                  if (tracking_url) {
+                      msg += `\n\n📍 *Rastreie aqui:* ${tracking_url}`;
+                  }
+              }
+              else if (status === 'canceled') {
+                  msg = `❌ *Pedido #${numPedido} foi cancelado* pelo estabelecimento.`;
+              }
+  
+              if (msg) {
+                  await tempBot.api.sendMessage(order.telegram_user_id, msg, { parse_mode: "Markdown" });
+              }
+          } catch (e) {
+              console.error("Erro ao notificar cliente:", e.message);
+          }
+      }
+  
+      res.json({ ok: true });
+  
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'server_error' });
+    } finally {
+      conn.release();
+    }
 });
 
 /* =====================================

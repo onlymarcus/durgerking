@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Parceiro - Admin</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f6f8; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        /* Login Simples */
+        #login-screen { background: white; padding: 40px; border-radius: 10px; text-align: center; max-width: 300px; margin: 100px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input { padding: 10px; width: 80%; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; background: #31b545; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #269e38; }
+
+        /* Lista de Pedidos */
+        .order-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #ccc; }
+        .order-card.pending { border-left-color: #f8a917; }
+        .order-card.preparing { border-left-color: #3498db; }
+        .order-card.delivering { border-left-color: #9b59b6; }
+        .order-card.completed { border-left-color: #2ecc71; opacity: 0.7; }
+        .order-card.canceled { border-left-color: #e74c3c; opacity: 0.6; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .order-id { font-size: 18px; font-weight: bold; }
+        .order-meta { color: #666; font-size: 14px; }
+        
+        .items-list { background: #f9f9f9; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .item { display: flex; justify-content: space-between; font-size: 14px; border-bottom: 1px solid #eee; padding: 5px 0; }
+
+        .actions { display: flex; gap: 10px; margin-top: 15px; align-items: center; }
+        select { padding: 8px; border-radius: 5px; border: 1px solid #ddd; }
+        .tracking-input { display: none; flex-grow: 1; padding: 8px; border: 1px solid #3498db; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h2>Acesso Lojista</h2>
+        <p>Digite o ID da sua Loja</p>
+        <input type="number" id="store-id" placeholder="Ex: 1 ou 2">
+        <button onclick="entrarNoPainel()">ACESSAR PEDIDOS</button>
+    </div>
+
+    <div class="container" id="dashboard" style="display: none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h1 id="page-title">Pedidos da Loja</h1>
+            <button onclick="carregarPedidos()" style="background:#666;">Atualizar</button>
+        </div>
+        <div id="orders-container">Carregando...</div>
+    </div>
+
+    <script>
+        let currentStoreId = null;
+
+        function entrarNoPainel() {
+            const id = document.getElementById('store-id').value;
+            if(!id) return alert("Digite o ID da loja");
+            currentStoreId = id;
+            
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('page-title').innerText = `Pedidos da Loja #${id}`;
+            carregarPedidos();
+            
+            // Atualiza a cada 30 segundos automaticamente
+            setInterval(carregarPedidos, 30000);
+        }
+
+        async function carregarPedidos() {
+            try {
+                const res = await fetch(`/api/admin/orders/${currentStoreId}`);
+                const orders = await res.json();
+                renderOrders(orders);
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao carregar pedidos");
+            }
+        }
+
+        function renderOrders(orders) {
+            const container = document.getElementById('orders-container');
+            container.innerHTML = '';
+
+            if(orders.length === 0) {
+                container.innerHTML = '<p style="text-align:center">Nenhum pedido encontrado.</p>';
+                return;
+            }
+
+            orders.forEach(o => {
+                const total = (o.total_cents / 100).toFixed(2);
+                const data = new Date(o.created_at).toLocaleString();
+                
+                // Gera a lista de itens
+                const itemsHtml = o.items.map(i => 
+                    `<div class="item"><span>${i.qty}x ${i.name}</span></div>`
+                ).join('');
+
+                const card = document.createElement('div');
+                card.className = `order-card ${o.status}`;
+                
+                // Lógica para mostrar campo de rastreio se for entregar
+                const isDelivering = o.status === 'delivering';
+
+                card.innerHTML = `
+                    <div class="header">
+                        <span class="order-id">#${o.friendly_id || '?'} <span style="font-size:12px; color:#999">(Global: ${o.id})</span></span>
+                        <span class="order-meta">${data}</span>
+                    </div>
+                    <div>
+                        <strong>${o.customer_name || 'Cliente'}</strong><br>
+                        📞 ${o.customer_phone || '-'}<br>
+                        📍 ${o.customer_address || 'Retirada'}
+                    </div>
+                    
+                    <div class="items-list">${itemsHtml}</div>
+                    
+                    <div style="text-align:right; font-weight:bold; margin-bottom:10px;">Total: R$ ${total}</div>
+
+                    <div class="actions">
+                        <select id="status-${o.id}" onchange="checkStatus(this, ${o.id})">
+                            <option value="pending" ${o.status=='pending'?'selected':''}>Pendente</option>
+                            <option value="preparing" ${o.status=='preparing'?'selected':''}>Em Preparo</option>
+                            <option value="delivering" ${o.status=='delivering'?'selected':''}>Saiu para Entrega</option>
+                            <option value="completed" ${o.status=='completed'?'selected':''}>Entregue</option>
+                            <option value="canceled" ${o.status=='canceled'?'selected':''}>Cancelado</option>
+                        </select>
+
+                        <input type="text" id="track-${o.id}" class="tracking-input" 
+                               placeholder="Cole o link do Uber/Maps aqui..." 
+                               value="${o.tracking_url || ''}"
+                               style="display: ${isDelivering ? 'block' : 'none'}">
+
+                        <button onclick="salvarStatus(${o.id})">Salvar</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function checkStatus(selectElem, id) {
+            const input = document.getElementById(`track-${id}`);
+            // Se escolheu "Saiu para Entrega", mostra o campo de link
+            if (selectElem.value === 'delivering') {
+                input.style.display = 'block';
+                input.focus();
+            } else {
+                input.style.display = 'none';
+            }
+        }
+
+        async function salvarStatus(orderId) {
+            const status = document.getElementById(`status-${orderId}`).value;
+            const trackUrl = document.getElementById(`track-${orderId}`).value;
+
+            if (status === 'delivering' && !trackUrl) {
+                if(!confirm("Você não colocou link de rastreio. O cliente receberá apenas o aviso que saiu. Deseja continuar?")) return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/update-order', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        status: status,
+                        tracking_url: trackUrl
+                    })
+                });
+                const json = await res.json();
+                
+                if(json.ok) {
+                    alert("Pedido atualizado e Cliente notificado!");
+                    carregarPedidos(); // Recarrega a lista
+                } else {
+                    alert("Erro: " + json.error);
+                }
+            } catch(e) {
+                alert("Erro de conexão");
+            }
+        }
+    </script>
+</body>
+</html>
