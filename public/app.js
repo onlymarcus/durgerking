@@ -165,26 +165,36 @@ function updateMainButton() {
 
     const totalFormatted = `R$ ${(totalCents/100).toFixed(2)}`;
 
+    // 2. Se o carrinho estiver vazio, esconde TUDO
     if (totalCents === 0) {
-        mainBtn.classList.remove('shown');
-        if(window.Telegram?.WebApp) window.Telegram.WebApp.MainButton.hide();
+        mainBtn.classList.remove('shown'); // Esconde Verde
+        if(window.Telegram?.WebApp) window.Telegram.WebApp.MainButton.hide(); // Esconde Azul
         return;
     }
 
-    mainBtn.classList.add('shown');
-    
-    if (appState === 'shop') {
-        mainBtn.innerText = `VER PEDIDO (${totalFormatted})`;
-        if(window.Telegram?.WebApp) {
-            window.Telegram.WebApp.MainButton.setText(`VER PEDIDO (${totalFormatted})`);
-            window.Telegram.WebApp.MainButton.show();
-            window.Telegram.WebApp.MainButton.onClick(handleMainButtonClick);
-        }
+    // 3. Verifica se estamos dentro do Telegram
+    const isTelegram = window.Telegram?.WebApp?.initData !== "";
+
+    if (isTelegram) {
+        // --- DENTRO DO TELEGRAM (Usa só o AZUL) ---
+        mainBtn.classList.remove('shown'); // Garante que o VERDE fique escondido
+        
+        // Configura o AZUL
+        window.Telegram.WebApp.MainButton.setText(
+            appState === 'shop' ? `VER PEDIDO (${totalFormatted})` : `PAGAR ${totalFormatted}`
+        );
+        window.Telegram.WebApp.MainButton.show();
+        
+        // Garante que o clique funcione (removemos ouvintes antigos para não duplicar)
+        window.Telegram.WebApp.MainButton.offClick(handleMainButtonClick);
+        window.Telegram.WebApp.MainButton.onClick(handleMainButtonClick);
+        
     } else {
-        mainBtn.innerText = `PAGAR ${totalFormatted}`;
-        if(window.Telegram?.WebApp) {
-            window.Telegram.WebApp.MainButton.setText(`PAGAR ${totalFormatted}`);
-        }
+        // --- NO NAVEGADOR PC (Usa só o VERDE) ---
+        mainBtn.classList.add('shown'); // Mostra o VERDE
+        mainBtn.innerText = appState === 'shop' 
+            ? `VER PEDIDO (${totalFormatted})` 
+            : `PAGAR ${totalFormatted}`;
     }
 }
 
