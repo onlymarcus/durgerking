@@ -1,7 +1,7 @@
 /******************************************************
- * SERVER.JS — Versão SAAS (Multi-lojas)
+ * SERVER.JS — Versão SAAS (Com Friendly ID)
  * ----------------------------------------------------
- * Agora busca bot_token e owner_telegram_id no banco
+ * Agora calcula o pedido #1, #2 para cada loja separadamente
  ******************************************************/
 
 require('dotenv').config();
@@ -58,7 +58,7 @@ app.get('/api/products', async (req, res) => {
 });
 
 /* =====================================
-   API — CRIAR PEDIDO (SAAS)
+   API — CRIAR PEDIDO (SAAS + FRIENDLY ID)
 ===================================== */
 app.post('/api/order', async (req, res) => {
   const { establishment_id, items, telegram_user, customer } = req.body;
@@ -72,7 +72,6 @@ app.post('/api/order', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     /* 1) Busca CONFIG da Loja */
-    // AQUI MUDAMOS: usamos owner_telegram_id em vez de admin_chat_id
     const [storeConfig] = await conn.query(
         "SELECT bot_token, owner_telegram_id, name FROM establishments WHERE id = ?", 
         [lojaId]
@@ -105,25 +104,37 @@ app.post('/api/order', async (req, res) => {
       serverTotal += dbp.price_cents * qty;
     }
 
+    /* 2.5) CALCULA O ID AMIGÁVEL DA LOJA */
+    // Busca o maior friendly_id DESTA loja e soma 1. Se não tiver nenhum, começa do 1.
+    const [maxIdResult] = await conn.query(
+        "SELECT MAX(friendly_id) as maxId FROM orders WHERE establishment_id = ?",
+        [lojaId]
+    );
+    const currentMax = maxIdResult[0].maxId || 0;
+    const nextFriendlyId = currentMax + 1;
+
+
     /* 3) Salva no Banco */
     await conn.beginTransaction();
 
     const [orderRes] = await conn.query(
       `INSERT INTO orders (
         establishment_id, telegram_user_id, customer_name, 
-        customer_phone, customer_address, total_cents, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+        customer_phone, customer_address, total_cents, 
+        friendly_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         lojaId,
         telegram_user?.id || null,
         customer?.name || null,
         customer?.phone || null,
         customer?.address || null,
-        serverTotal
+        serverTotal,
+        nextFriendlyId // <--- Salvamos o ID sequencial aqui
       ]
     );
 
-    const orderId = orderRes.insertId;
+    const globalOrderId = orderRes.insertId; // ID Global (ex: 27)
 
     const insertItems = items.map(it => {
       const pid = Number(it.product_id);
@@ -132,7 +143,7 @@ app.post('/api/order', async (req, res) => {
       return conn.query(
         `INSERT INTO order_items (order_id, product_id, name, qty, price_cents)
          VALUES (?, ?, ?, ?, ?)`,
-        [orderId, pid, dbp.name, qty, dbp.price_cents]
+        [globalOrderId, pid, dbp.name, qty, dbp.price_cents]
       );
     });
 
@@ -140,7 +151,6 @@ app.post('/api/order', async (req, res) => {
     await conn.commit();
 
     /* 4) NOTIFICAÇÃO SAAS */
-    // Verifica se tem bot_token e owner_telegram_id configurados
     if (store.bot_token && store.owner_telegram_id) {
         try {
             const tempBot = new Bot(store.bot_token);
@@ -152,7 +162,8 @@ app.post('/api/order', async (req, res) => {
                 return `• ${qty}x ${p.name}`;
             }).join("\n");
 
-            const msg = `🔔 *NOVO PEDIDO #${orderId}*\n` +
+            // MUDANÇA AQUI: Usamos nextFriendlyId no título
+            const msg = `🔔 *NOVO PEDIDO #${nextFriendlyId}*\n` +
                         `🏠 *Loja:* ${store.name}\n\n` +
                         `👤 *Cliente:* ${customer?.name || "Anônimo"}\n` +
                         `📞 *Tel:* ${customer?.phone || "-"}\n` +
@@ -161,15 +172,15 @@ app.post('/api/order', async (req, res) => {
                         `🛒 *Itens:*\n${itemsText}\n\n` +
                         `💰 *Total:* R$ ${(serverTotal / 100).toFixed(2)}`;
 
-            // Envia para o owner_telegram_id do banco
             await tempBot.api.sendMessage(store.owner_telegram_id, msg, { parse_mode: "Markdown" });
-            console.log(`Pedido #${orderId} notificado para loja ${lojaId}`);
+            console.log(`Pedido Global #${globalOrderId} (Loja #${nextFriendlyId}) notificado.`);
         } catch (botError) {
             console.error(`Erro Telegram loja ${lojaId}:`, botError.message);
         }
     }
 
-    res.json({ ok: true, order_id: orderId });
+    // Retornamos os dois IDs caso o front precise
+    res.json({ ok: true, order_id: nextFriendlyId, global_id: globalOrderId });
 
   } catch (err) {
     console.error("order error", err);
