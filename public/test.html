@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Teste Login</title>
+    <meta name="referrer" content="origin">
+</head>
+
+<body style="background-color: #f0f0f0; display:flex; justify-content:center; padding-top:50px;">
+
+    <div style="text-align:center;">
+        <h1>Teste Isolado</h1>
+
+        <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="querocomidashopbot"
+            data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write">
+            </script>
+    </div>
+
+    <script>
+        function onTelegramAuth(user) {
+            alert("SUCESSO! \n\nLogado como: " + user.first_name + " (ID: " + user.id + ")");
+            console.log(user);
+        }
+    </script>
+</body>
+
+</html>
