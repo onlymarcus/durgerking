@@ -23,6 +23,7 @@
         #login-screen {
             height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
         }
@@ -33,16 +34,29 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
-            width: 300px;
+            width: 320px;
+        }
+
+        .login-box h2 {
+            margin-top: 0;
+            color: var(--dark);
         }
 
         .login-box input {
             width: 100%;
             padding: 12px;
-            margin: 10px 0;
+            margin: 15px 0;
             border: 1px solid #ddd;
             border-radius: 6px;
             box-sizing: border-box;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 20px;
         }
 
         /* DASHBOARD */
@@ -58,6 +72,12 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+        }
+
+        .user-info {
+            font-size: 14px;
+            color: #666;
+            text-align: right;
         }
 
         .tabs {
@@ -108,7 +128,7 @@
             background: #6c757d;
         }
 
-        /* LISTA PEDIDOS */
+        /* LISTAS */
         .order-card {
             background: white;
             border-radius: 8px;
@@ -131,7 +151,6 @@
             opacity: 0.8;
         }
 
-        /* LISTA PRODUTOS */
         .prod-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -144,7 +163,6 @@
             padding: 10px;
             text-align: center;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-            position: relative;
         }
 
         .prod-img {
@@ -161,7 +179,7 @@
             justify-content: center;
         }
 
-        /* MODAL PRODUTO */
+        /* MODAL */
         .modal {
             display: none;
             position: fixed;
@@ -209,17 +227,29 @@
 
     <div id="login-screen">
         <div class="login-box">
-            <h2>Acesso Lojista</h2>
-            <input type="number" id="store-id" placeholder="ID da Loja (ex: 1)">
-            <button class="btn btn-green" onclick="entrar()" style="width:100%">ACESSAR PAINEL</button>
+            <h2>Painel do Parceiro</h2>
+            <p class="helper-text">Digite o ID da Loja e faça login com Telegram</p>
+
+            <input type="number" id="store-id-input" placeholder="ID da Loja (Ex: 1)">
+
+            <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="Criptofoodbot"
+                data-size="large" data-radius="10" data-onauth="onTelegramAuth(user)" data-request-access="write">
+                </script>
+
+            <p id="login-msg" style="color:red; margin-top:15px; font-size:13px;"></p>
         </div>
     </div>
 
     <div id="dashboard">
         <div class="header">
-            <h2 id="store-title">Loja #?</h2>
-            <button class="btn btn-blue" onclick="pedirAjudaBot()">🤖 Preciso de Ajuda</button>
-            <button class="btn btn-gray" onclick="sair()">Sair</button>
+            <div>
+                <h2 id="store-title" style="margin:0;">Carregando...</h2>
+                <div class="user-info" id="user-display">Usuário: ...</div>
+            </div>
+            <div>
+                <button class="btn btn-blue" onclick="pedirAjudaBot()">🤖 Ajuda Bot</button>
+                <button class="btn btn-gray" onclick="sair()">Sair</button>
+            </div>
         </div>
 
         <div class="tabs">
@@ -244,34 +274,27 @@
 
     <div id="prod-modal" class="modal">
         <div class="modal-content">
-            <h3 id="modal-title">Novo Produto</h3>
+            <h3 id="modal-title">Produto</h3>
             <input type="hidden" id="prod-id">
-
             <div class="form-group">
-                <label>Nome do Produto</label>
-                <input type="text" id="prod-name" placeholder="Ex: X-Burger">
+                <label>Nome</label> <input type="text" id="prod-name">
             </div>
             <div class="form-group">
-                <label>Descrição</label>
-                <textarea id="prod-desc" rows="2" placeholder="Ingredientes..."></textarea>
+                <label>Descrição</label> <textarea id="prod-desc" rows="2"></textarea>
             </div>
             <div class="form-group">
-                <label>Preço (R$)</label>
-                <input type="number" id="prod-price" placeholder="Ex: 25.00" step="0.01">
+                <label>Preço (R$)</label> <input type="number" id="prod-price" step="0.01">
             </div>
             <div class="form-group">
-                <label>Foto do Produto</label>
+                <label>Foto</label>
                 <input type="file" id="prod-file" accept="image/*" style="display:none" onchange="uploadImagem()">
-
                 <button class="btn btn-gray" onclick="document.getElementById('prod-file').click()"
                     style="width:100%">Escolher Foto</button>
-
                 <div style="margin-top:10px; text-align:center;">
-                    <img id="preview-img" src="abcd.png" style="max-height:100px; border-radius:8px;">
+                    <img id="preview-img" src="" style="max-height:100px; border-radius:8px; display:none;">
                 </div>
-                <input type="hidden" id="prod-img" value="abcd.png">
+                <input type="hidden" id="prod-img">
             </div>
-
             <div style="display:flex; justify-content:space-between; margin-top:20px;">
                 <button class="btn btn-gray" onclick="fecharModal()">Cancelar</button>
                 <button class="btn btn-green" onclick="salvarProduto()">SALVAR</button>
@@ -281,24 +304,73 @@
 
     <script>
         let lojaId = null;
+        let currentUser = null;
 
-        // --- AUTH ---
-        function entrar() {
-            const id = document.getElementById('store-id').value;
-            if (!id) return alert("Digite o ID");
-            lojaId = id;
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('dashboard').style.display = 'block';
-            document.getElementById('store-title').innerText = `Gestão Loja #${id}`;
-            carregarPedidos();
+        // --- LOGIN ---
+        async function onTelegramAuth(user) {
+            const idInput = document.getElementById('store-id-input').value;
+            if (!idInput) {
+                alert("Por favor, digite o ID da Loja antes de logar.");
+                return;
+            }
+
+            const msg = document.getElementById('login-msg');
+            msg.innerText = "Verificando permissão...";
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        establishment_id: idInput,
+                        telegram_user: user
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.ok) {
+                    // Login Sucesso
+                    lojaId = idInput;
+                    currentUser = user;
+
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+
+                    document.getElementById('store-title').innerText = data.storeName || `Loja #${lojaId}`;
+                    document.getElementById('user-display').innerText = `Olá, ${user.first_name} (${data.role})`;
+
+                    carregarPedidos();
+                    // Salva sessão simples (opcional)
+                    localStorage.setItem('admin_session', JSON.stringify({ store: lojaId, user: user }));
+                } else {
+                    msg.innerText = data.error || "Erro ao logar.";
+                    alert(data.error);
+                }
+            } catch (e) {
+                msg.innerText = "Erro de conexão com o servidor.";
+                console.error(e);
+            }
         }
-        function sair() { location.reload(); }
+
+        function sair() {
+            localStorage.removeItem('admin_session');
+            location.reload();
+        }
+
+        // Restaura sessão se existir (Auto-login)
+        window.onload = function () {
+            const sessao = JSON.parse(localStorage.getItem('admin_session'));
+            if (sessao) {
+                document.getElementById('store-id-input').value = sessao.store;
+                onTelegramAuth(sessao.user);
+            }
+        }
 
         // --- NAVEGAÇÃO ---
         function mudarAba(aba) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById(`tab-${aba}`).classList.add('active');
-
             if (aba === 'orders') {
                 document.getElementById('view-orders').style.display = 'block';
                 document.getElementById('view-products').style.display = 'none';
@@ -316,8 +388,7 @@
             const pedidos = await res.json();
             const div = document.getElementById('orders-list');
             div.innerHTML = '';
-
-            if (pedidos.length === 0) div.innerHTML = '<p>Sem pedidos.</p>';
+            if (pedidos.length === 0) div.innerHTML = '<p style="text-align:center; color:#999;">Nenhum pedido ainda.</p>';
 
             pedidos.forEach(p => {
                 const itens = p.items.map(i => `${i.qty}x ${i.name}`).join(', ');
@@ -327,15 +398,19 @@
                             <strong>#${p.friendly_id || p.id} ${p.customer_name || 'Cliente'}</strong>
                             <span>R$ ${(p.total_cents / 100).toFixed(2)}</span>
                         </div>
-                        <div style="font-size:13px; color:#666;">${itens}</div>
-                        <div style="margin-top:10px; display:flex; gap:5px;">
-                            <select id="st-${p.id}" style="padding:5px;">
+                        <div style="font-size:13px; color:#666; margin:5px 0;">${itens}</div>
+                        <div style="font-size:12px; color:#444; margin-bottom:8px;">
+                            📞 ${p.customer_phone || ''} <br> 📍 ${p.customer_address || 'Balcão'}
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <select id="st-${p.id}" style="padding:5px; border-radius:4px; border:1px solid #ddd;">
                                 <option value="pending" ${p.status == 'pending' ? 'selected' : ''}>Pendente</option>
                                 <option value="preparing" ${p.status == 'preparing' ? 'selected' : ''}>Preparando</option>
                                 <option value="delivering" ${p.status == 'delivering' ? 'selected' : ''}>Em Entrega</option>
                                 <option value="completed" ${p.status == 'completed' ? 'selected' : ''}>Concluído</option>
+                                <option value="canceled" ${p.status == 'canceled' ? 'selected' : ''}>Cancelado</option>
                             </select>
-                            <input id="trk-${p.id}" placeholder="Link Rastreio" value="${p.tracking_url || ''}" style="width:120px;">
+                            <input id="trk-${p.id}" placeholder="Link Rastreio" value="${p.tracking_url || ''}" style="flex-grow:1; padding:5px; border:1px solid #ddd; border-radius:4px;">
                             <button class="btn btn-blue" style="padding:5px 10px; font-size:12px;" onclick="atualizarStatus(${p.id})">Salvar</button>
                         </div>
                     </div>`;
@@ -349,7 +424,7 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ order_id: id, status: st, tracking_url: trk })
             });
-            alert("Atualizado!");
+            alert("Status atualizado!");
         }
 
         // --- PRODUTOS ---
@@ -358,15 +433,12 @@
             const prods = await res.json();
             const div = document.getElementById('products-list');
             div.innerHTML = '';
-
             prods.forEach(p => {
-                // Escapa as aspas simples para não quebrar o HTML do onclick
                 const pString = JSON.stringify(p).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-
                 div.innerHTML += `
                     <div class="prod-card">
                         <img src="${p.image_url}" class="prod-img">
-                        <div style="font-weight:bold; font-size:14px;">${p.name}</div>
+                        <div style="font-weight:bold; font-size:14px; height:36px; overflow:hidden;">${p.name}</div>
                         <div style="color:#28a745; font-weight:bold;">R$ ${(p.price_cents / 100).toFixed(2)}</div>
                         <div class="prod-actions">
                             <button class="btn btn-blue" style="padding:5px 10px;" onclick='editarProduto(${pString})'>✏️</button>
@@ -376,13 +448,14 @@
             });
         }
 
-        // --- CRUD PRODUTOS ---
         function abrirModalProduto() {
             document.getElementById('prod-id').value = '';
             document.getElementById('prod-name').value = '';
             document.getElementById('prod-desc').value = '';
             document.getElementById('prod-price').value = '';
             document.getElementById('prod-img').value = '/img/Burger_148.png';
+            document.getElementById('preview-img').src = '/img/Burger_148.png';
+            document.getElementById('preview-img').style.display = 'block';
             document.getElementById('modal-title').innerText = 'Novo Produto';
             document.getElementById('prod-modal').style.display = 'flex';
         }
@@ -393,12 +466,24 @@
             document.getElementById('prod-desc').value = p.description;
             document.getElementById('prod-price').value = (p.price_cents / 100).toFixed(2);
             document.getElementById('prod-img').value = p.image_url;
+            document.getElementById('preview-img').src = p.image_url;
+            document.getElementById('preview-img').style.display = 'block';
             document.getElementById('modal-title').innerText = 'Editar Produto';
             document.getElementById('prod-modal').style.display = 'flex';
         }
+        function fecharModal() { document.getElementById('prod-modal').style.display = 'none'; }
 
-        function fecharModal() {
-            document.getElementById('prod-modal').style.display = 'none';
+        async function uploadImagem() {
+            const file = document.getElementById('prod-file').files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('photo', file);
+            const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.url) {
+                document.getElementById('prod-img').value = data.url;
+                document.getElementById('preview-img').src = data.url;
+            } else alert("Erro upload");
         }
 
         async function salvarProduto() {
@@ -410,72 +495,28 @@
                 price: document.getElementById('prod-price').value,
                 image_url: document.getElementById('prod-img').value
             };
-
-            const res = await fetch('/api/admin/product', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            await fetch('/api/admin/product', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
-
-            if (res.ok) {
-                fecharModal();
-                carregarProdutos();
-            } else {
-                alert("Erro ao salvar");
-            }
+            fecharModal(); carregarProdutos();
         }
 
         async function deletarProduto(id) {
-            if (!confirm("Tem certeza que deseja apagar este produto?")) return;
+            if (!confirm("Apagar produto?")) return;
             await fetch('/api/admin/product/delete', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, establishment_id: lojaId })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, establishment_id: lojaId })
             });
             carregarProdutos();
         }
-        // --- UPLOAD DE IMAGEM ---
-        async function uploadImagem() {
-            const fileInput = document.getElementById('prod-file');
-            if (fileInput.files.length === 0) return;
 
-            const file = fileInput.files[0];
-            const formData = new FormData();
-            formData.append('photo', file);
-
-            // Mostra carregando...
-            document.getElementById('preview-img').style.opacity = 0.5;
-
-            try {
-                const res = await fetch('/api/admin/upload', {
-                    method: 'POST',
-                    body: formData // Não precisa de header Content-Type, o navegador põe sozinho
-                });
-                const data = await res.json();
-
-                if (data.url) {
-                    // Atualiza o preview e o campo hidden que vai pro banco
-                    document.getElementById('prod-img').value = data.url;
-                    document.getElementById('preview-img').src = data.url;
-                    document.getElementById('preview-img').style.opacity = 1;
-                } else {
-                    alert("Erro no upload");
-                }
-            } catch (e) {
-                alert("Erro ao enviar imagem");
-            }
-        }
-
-        // --- CONCIERGE (PEDIR AJUDA) ---
         async function pedirAjudaBot() {
-            const contato = prompt("Digite seu usuário do Telegram ou WhatsApp para entrarmos em contato:");
+            const contato = prompt("Seu contato (Telegram/Whats):");
             if (!contato) return;
-
             await fetch('/api/admin/help-setup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ establishment_id: lojaId, contact: contato })
             });
-
-            alert("Solicitação enviada! Nossa equipe vai te chamar em breve para configurar seu robô.");
+            alert("Solicitação enviada!");
         }
     </script>
 </body>

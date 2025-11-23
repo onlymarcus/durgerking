@@ -423,7 +423,56 @@ app.post('/api/admin/product/delete', async (req, res) => {
     res.status(500).json({ error: 'db_error' });
   }
 });
+/* =====================================
+   API — LOGIN (AUTENTICAÇÃO TELEGRAM)
+===================================== */
+app.post('/api/admin/login', async (req, res) => {
+  const { establishment_id, telegram_user } = req.body;
 
+  if (!establishment_id || !telegram_user || !telegram_user.id) {
+    return res.status(400).json({ error: 'Dados incompletos' });
+  }
+
+  const telegramId = telegram_user.id;
+
+  try {
+    // 1. Verifica se é o DONO (tabela establishments)
+    const [ownerCheck] = await pool.query(
+      "SELECT id, name FROM establishments WHERE id = ? AND owner_telegram_id = ?",
+      [establishment_id, telegramId]
+    );
+
+    if (ownerCheck.length > 0) {
+      return res.json({
+        ok: true,
+        role: 'owner',
+        storeName: ownerCheck[0].name
+      });
+    }
+
+    // 2. Se não for dono, verifica se é STAFF (tabela staff)
+    // (Como criamos a tabela staff no passo anterior, isso já vai funcionar)
+    const [staffCheck] = await pool.query(
+      "SELECT role FROM staff WHERE establishment_id = ? AND telegram_id = ?",
+      [establishment_id, telegramId]
+    );
+
+    if (staffCheck.length > 0) {
+      return res.json({
+        ok: true,
+        role: staffCheck[0].role,
+        storeName: 'Loja' // Poderia buscar o nome também
+      });
+    }
+
+    // 3. Se não encontrou nada
+    return res.status(403).json({ error: 'Acesso negado: Você não tem permissão nesta loja.' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro no servidor' });
+  }
+});
 
 /* =====================================
    START SERVER
