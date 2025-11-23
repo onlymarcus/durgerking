@@ -231,10 +231,14 @@
             <p class="helper-text">Digite o ID da Loja e faça login com Telegram</p>
 
             <input type="number" id="store-id-input" placeholder="ID da Loja (Ex: 1)">
-
             <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="criptofoodbot"
-                data-size="large" data-radius="10" data-onauth="onTelegramAuth(user)" data-request-access="write">
-                </script>
+                data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
+            <script type="text/javascript">
+                function onTelegramAuth(user) {
+                    alert('Logged in as ' + user.first_name + ' ' + user.last_name + ' (' + user.id + (user.username ? ', @' + user.username : '') + ')');
+                }
+            </script>
+
 
             <p id="login-msg" style="color:red; margin-top:15px; font-size:13px;"></p>
         </div>
