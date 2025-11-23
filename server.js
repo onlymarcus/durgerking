@@ -1,10 +1,12 @@
 /******************************************************
- * SERVER.JS — Versão FINAL (SAAS + Friendly ID + Admin)
+ * SERVER.JS — Versão FINAL COMPLETA
  * ----------------------------------------------------
  * Inclui:
  * 1. Múltiplas lojas (SAAS)
- * 2. IDs amigáveis por loja (#1, #2...)
- * 3. API do Painel Admin (Listar e Atualizar)
+ * 2. IDs amigáveis (#1, #2...)
+ * 3. API Admin (CRUD Produtos + Pedidos)
+ * 4. UPLOAD DE IMAGENS (Multer)
+ * 5. BOTÃO DE AJUDA (Concierge)
  ******************************************************/
 
 require('dotenv').config();
@@ -15,19 +17,50 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { Bot } = require('grammy'); 
+const multer = require('multer'); // Biblioteca de Upload
+const { Bot } = require('grammy');
 
-const { pool } = require('./db');   
+const { pool } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* =====================================
+   CONFIGURAÇÃO DO UPLOAD (MULTER)
+===================================== */
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Salva na pasta public/uploads
+    cb(null, 'public/uploads/')
+  },
+  filename: function (req, file, cb) {
+    // Gera nome único: timestamp-numero.extensão
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// Filtro: Só aceita imagens e max 5MB
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas!'));
+    }
+  }
+});
+
+/* =====================================
    SECURITY MIDDLEWARES
 ===================================== */
+// Desativamos o CSP para o admin.html funcionar sem bloqueios
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
+
 app.use(cors({ origin: "*", credentials: true }));
 
 app.use(rateLimit({
@@ -43,6 +76,51 @@ app.use(express.urlencoded({ extended: true }));
    STATIC FILES
 ===================================== */
 app.use(express.static(path.join(__dirname, 'public')));
+
+
+/* =====================================
+   API — ROTA DE UPLOAD (NOVA)
+===================================== */
+app.post('/api/admin/upload', upload.single('photo'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+  }
+  // Retorna a URL pública da imagem para o front-end salvar no banco
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
+
+/* =====================================
+   API — ROTA DE AJUDA (NOVA)
+===================================== */
+app.post('/api/admin/help-setup', async (req, res) => {
+  const { establishment_id, contact } = req.body;
+
+  try {
+    // 1. Busca nome da loja
+    const [rows] = await pool.query("SELECT name FROM establishments WHERE id=?", [establishment_id]);
+    const lojaNome = rows[0]?.name || "Desconhecida";
+
+    // 2. Notifica VOCÊ (Super Admin)
+    const adminBotToken = process.env.BOT_TOKEN;
+    const seuTelegramId = process.env.ADMIN_CHAT_ID;
+
+    if (adminBotToken && seuTelegramId) {
+      const bot = new Bot(adminBotToken);
+      await bot.api.sendMessage(seuTelegramId,
+        `🆘 <b>SOLICITAÇÃO DE AJUDA SAAS</b>\n\n` +
+        `A loja <b>"${lojaNome}"</b> (ID: ${establishment_id}) precisa de ajuda com o Bot.\n` +
+        `📞 Contato: ${contact}`,
+        { parse_mode: "HTML" }
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro ao notificar admin' });
+  }
+});
+
 
 /* =====================================
    API — LISTAGEM DE PRODUTOS
@@ -62,6 +140,7 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+
 /* =====================================
    API — CRIAR PEDIDO (SAAS + FRIENDLY ID)
 ===================================== */
@@ -78,12 +157,12 @@ app.post('/api/order', async (req, res) => {
   try {
     /* 1) Busca CONFIG da Loja */
     const [storeConfig] = await conn.query(
-        "SELECT bot_token, owner_telegram_id, name FROM establishments WHERE id = ?", 
-        [lojaId]
+      "SELECT bot_token, owner_telegram_id, name FROM establishments WHERE id = ?",
+      [lojaId]
     );
 
     if (storeConfig.length === 0) {
-        return res.status(404).json({ error: 'store_not_found' });
+      return res.status(404).json({ error: 'store_not_found' });
     }
     const store = storeConfig[0];
 
@@ -111,8 +190,8 @@ app.post('/api/order', async (req, res) => {
 
     /* 2.5) CALCULA O ID AMIGÁVEL DA LOJA */
     const [maxIdResult] = await conn.query(
-        "SELECT MAX(friendly_id) as maxId FROM orders WHERE establishment_id = ?",
-        [lojaId]
+      "SELECT MAX(friendly_id) as maxId FROM orders WHERE establishment_id = ?",
+      [lojaId]
     );
     const currentMax = maxIdResult[0].maxId || 0;
     const nextFriendlyId = currentMax + 1;
@@ -134,11 +213,11 @@ app.post('/api/order', async (req, res) => {
         customer?.phone || null,
         customer?.address || null,
         serverTotal,
-        nextFriendlyId 
+        nextFriendlyId
       ]
     );
 
-    const globalOrderId = orderRes.insertId; 
+    const globalOrderId = orderRes.insertId;
 
     const insertItems = items.map(it => {
       const pid = Number(it.product_id);
@@ -156,196 +235,196 @@ app.post('/api/order', async (req, res) => {
 
     /* 4) NOTIFICA O DONO */
     if (store.bot_token && store.owner_telegram_id) {
-        try {
-            const tempBot = new Bot(store.bot_token);
-            const itemsText = items.map(i => {
-                const pid = Number(i.product_id);
-                const p = byId[pid];
-                const qty = Number(i.qty) || 1;
-                return `• ${qty}x ${p.name}`;
-            }).join("\n");
+      try {
+        const tempBot = new Bot(store.bot_token);
+        const itemsText = items.map(i => {
+          const pid = Number(i.product_id);
+          const p = byId[pid];
+          const qty = Number(i.qty) || 1;
+          return `• ${qty}x ${p.name}`;
+        }).join("\n");
 
-            const msg = `🔔 *NOVO PEDIDO #${nextFriendlyId}*\n` +
-                        `🏠 *Loja:* ${store.name}\n\n` +
-                        `👤 *Cliente:* ${customer?.name || "Anônimo"}\n` +
-                        `📞 *Tel:* ${customer?.phone || "-"}\n` +
-                        `📍 *End:* ${customer?.address || "Retirada"}\n` +
-                        `📝 *Obs:* ${customer?.note || "-"}\n\n` +
-                        `🛒 *Itens:*\n${itemsText}\n\n` +
-                        `💰 *Total:* R$ ${(serverTotal / 100).toFixed(2)}`;
+        const msg = `🔔 *NOVO PEDIDO #${nextFriendlyId}*\n` +
+          `🏠 *Loja:* ${store.name}\n\n` +
+          `👤 *Cliente:* ${customer?.name || "Anônimo"}\n` +
+          `📞 *Tel:* ${customer?.phone || "-"}\n` +
+          `📍 *End:* ${customer?.address || "Retirada"}\n` +
+          `📝 *Obs:* ${customer?.note || "-"}\n\n` +
+          `🛒 *Itens:*\n${itemsText}\n\n` +
+          `💰 *Total:* R$ ${(serverTotal / 100).toFixed(2)}`;
 
-            await tempBot.api.sendMessage(store.owner_telegram_id, msg, { parse_mode: "Markdown" });
-        } catch (botError) {
-            console.error(`Erro Telegram loja ${lojaId}:`, botError.message);
-        }
+        await tempBot.api.sendMessage(store.owner_telegram_id, msg, { parse_mode: "Markdown" });
+      } catch (botError) {
+        console.error(`Erro Telegram loja ${lojaId}:`, botError.message);
+      }
     }
 
     res.json({ ok: true, order_id: nextFriendlyId, global_id: globalOrderId });
 
   } catch (err) {
     console.error("order error", err);
-    try { await conn.rollback(); } catch(e){}
+    try { await conn.rollback(); } catch (e) { }
     res.status(500).json({ error: 'internal_error' });
   } finally {
     conn.release();
   }
 });
 
+
 /* =====================================
    ADMIN API — LISTAR PEDIDOS DA LOJA
-   (Usado pelo Painel admin.html)
 ===================================== */
 app.get('/api/admin/orders/:establishment_id', async (req, res) => {
-    const { establishment_id } = req.params;
-  
-    try {
-      const [orders] = await pool.query(
-        `SELECT id, friendly_id, customer_name, customer_phone, customer_address, 
-                total_cents, status, tracking_url, created_at 
+  const { establishment_id } = req.params;
+
+  try {
+    const [orders] = await pool.query(
+      `SELECT id, friendly_id, customer_name, customer_phone, customer_address, 
+                total_cents, status, tracking_url, created_at, telegram_user_id 
          FROM orders 
          WHERE establishment_id = ? 
          ORDER BY id DESC LIMIT 50`,
-        [establishment_id]
+      [establishment_id]
+    );
+
+    const ordersWithItems = await Promise.all(orders.map(async (order) => {
+      const [items] = await pool.query(
+        "SELECT name, qty FROM order_items WHERE order_id = ?",
+        [order.id]
       );
-  
-      // Busca itens
-      const ordersWithItems = await Promise.all(orders.map(async (order) => {
-          const [items] = await pool.query(
-              "SELECT name, qty FROM order_items WHERE order_id = ?",
-              [order.id]
-          );
-          return { ...order, items };
-      }));
-  
-      res.json(ordersWithItems);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'server_error' });
-    }
+      return { ...order, items };
+    }));
+
+    res.json(ordersWithItems);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'server_error' });
+  }
 });
 
+
 /* =====================================
-   ADMIN API — ATUALIZAR STATUS + RASTREIO
-   (Usado pelo Painel admin.html)
+   ADMIN API — ATUALIZAR STATUS DO PEDIDO
 ===================================== */
 app.post('/api/admin/update-order', async (req, res) => {
-    const { order_id, status, tracking_url } = req.body;
-  
-    if (!order_id || !status) return res.status(400).json({ error: 'missing_data' });
-  
-    const conn = await pool.getConnection();
-    try {
-      // 1. Busca dados do pedido e da loja
-      const [orders] = await conn.query(
-          `SELECT o.*, e.bot_token 
+  const { order_id, status, tracking_url } = req.body;
+
+  if (!order_id || !status) return res.status(400).json({ error: 'missing_data' });
+
+  const conn = await pool.getConnection();
+  try {
+    const [orders] = await conn.query(
+      `SELECT o.*, e.bot_token 
            FROM orders o
            JOIN establishments e ON o.establishment_id = e.id
-           WHERE o.id = ?`, 
-          [order_id]
-      );
-  
-      if (orders.length === 0) return res.status(404).json({ error: 'order_not_found' });
-      const order = orders[0];
-  
-      // 2. Atualiza no Banco
-      await conn.query(
-          "UPDATE orders SET status = ?, tracking_url = ? WHERE id = ?",
-          [status, tracking_url || null, order_id]
-      );
-  
-      // 3. NOTIFICA O CLIENTE
-      if (order.telegram_user_id && order.bot_token) {
-          try {
-              const tempBot = new Bot(order.bot_token);
-              let msg = "";
-              // Usamos friendly_id para o cliente não estranhar o número
-              const numPedido = order.friendly_id || order.id;
-  
-              if (status === 'preparing') {
-                  msg = `👨‍🍳 *Pedido #${numPedido} em preparação!* \nSua comida já está sendo feita.`;
-              } 
-              else if (status === 'delivering') {
-                  msg = `🛵 *Pedido #${numPedido} SAIU PARA ENTREGA!*`;
-                  if (tracking_url) {
-                      msg += `\n\n📍 *Rastreie aqui:* ${tracking_url}`;
-                  }
-              }
-              else if (status === 'canceled') {
-                  msg = `❌ *Pedido #${numPedido} foi cancelado* pelo estabelecimento.`;
-              }
-  
-              if (msg) {
-                  await tempBot.api.sendMessage(order.telegram_user_id, msg, { parse_mode: "Markdown" });
-              }
-          } catch (e) {
-              console.error("Erro ao notificar cliente:", e.message);
-          }
-      }
-  
-      res.json({ ok: true });
-  
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'server_error' });
-    } finally {
-      conn.release();
-    }
-});
-/* =====================================
-   ADMIN API — GESTÃO DE PRODUTOS (CRUD)
-===================================== */
+           WHERE o.id = ?`,
+      [order_id]
+    );
 
-// 1. SALVAR PRODUTO (Cria ou Atualiza)
-app.post('/api/admin/product', async (req, res) => {
-    const { id, establishment_id, name, description, price, image_url } = req.body;
+    if (orders.length === 0) return res.status(404).json({ error: 'order_not_found' });
+    const order = orders[0];
 
-    // Converte "25.50" para 2550 centavos
-    const price_cents = Math.round(parseFloat(price) * 100);
+    await conn.query(
+      "UPDATE orders SET status = ?, tracking_url = ? WHERE id = ?",
+      [status, tracking_url || null, order_id]
+    );
 
-    if (!establishment_id || !name || !price_cents) {
-        return res.status(400).json({ error: 'missing_data' });
-    }
+    // Notifica o cliente
+    if (order.telegram_user_id && order.bot_token) {
+      try {
+        const tempBot = new Bot(order.bot_token);
+        let msg = "";
+        const numPedido = order.friendly_id || order.id;
 
-    const conn = await pool.getConnection();
-    try {
-        if (id) {
-            // EDITAR existente
-            await conn.query(
-                `UPDATE products SET name=?, description=?, price_cents=?, image_url=? 
-                 WHERE id=? AND establishment_id=?`,
-                [name, description, price_cents, image_url, id, establishment_id]
-            );
-        } else {
-            // CRIAR novo
-            await conn.query(
-                `INSERT INTO products (establishment_id, name, description, price_cents, image_url, active) 
-                 VALUES (?, ?, ?, ?, ?, 1)`,
-                [establishment_id, name, description, price_cents, image_url]
-            );
+        if (status === 'preparing') {
+          msg = `👨‍🍳 *Pedido #${numPedido} em preparação!* \nSua comida já está sendo feita.`;
         }
-        res.json({ ok: true });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'db_error' });
-    } finally {
-        conn.release();
+        else if (status === 'delivering') {
+          msg = `🛵 *Pedido #${numPedido} SAIU PARA ENTREGA!*`;
+          if (tracking_url) {
+            msg += `\n\n📍 *Rastreie aqui:* ${tracking_url}`;
+          }
+        }
+        else if (status === 'canceled') {
+          msg = `❌ *Pedido #${numPedido} foi cancelado* pelo estabelecimento.`;
+        }
+
+        if (msg) {
+          await tempBot.api.sendMessage(order.telegram_user_id, msg, { parse_mode: "Markdown" });
+        }
+      } catch (e) {
+        console.error("Erro ao notificar cliente:", e.message);
+      }
     }
+
+    res.json({ ok: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'server_error' });
+  } finally {
+    conn.release();
+  }
 });
 
-// 2. DELETAR PRODUTO
-app.post('/api/admin/product/delete', async (req, res) => {
-    const { id, establishment_id } = req.body;
-    try {
-        // Verifica establishment_id por segurança para não apagar produto de outro
-        await pool.query(
-            "DELETE FROM products WHERE id=? AND establishment_id=?", 
-            [id, establishment_id]
-        );
-        res.json({ ok: true });
-    } catch (err) {
-        res.status(500).json({ error: 'db_error' });
+
+/* =====================================
+   ADMIN API — GESTÃO DE PRODUTOS (CRIAR/EDITAR)
+===================================== */
+app.post('/api/admin/product', async (req, res) => {
+  const { id, establishment_id, name, description, price, image_url } = req.body;
+
+  // Converte "25.50" para 2550 centavos
+  const price_cents = Math.round(parseFloat(price) * 100);
+
+  if (!establishment_id || !name || !price_cents) {
+    return res.status(400).json({ error: 'missing_data' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    if (id) {
+      // EDITAR existente
+      await conn.query(
+        `UPDATE products SET name=?, description=?, price_cents=?, image_url=? 
+                 WHERE id=? AND establishment_id=?`,
+        [name, description, price_cents, image_url, id, establishment_id]
+      );
+    } else {
+      // CRIAR novo
+      await conn.query(
+        `INSERT INTO products (establishment_id, name, description, price_cents, image_url, active) 
+                 VALUES (?, ?, ?, ?, ?, 1)`,
+        [establishment_id, name, description, price_cents, image_url]
+      );
     }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'db_error' });
+  } finally {
+    conn.release();
+  }
 });
+
+
+/* =====================================
+   ADMIN API — DELETAR PRODUTO
+===================================== */
+app.post('/api/admin/product/delete', async (req, res) => {
+  const { id, establishment_id } = req.body;
+  try {
+    await pool.query(
+      "DELETE FROM products WHERE id=? AND establishment_id=?",
+      [id, establishment_id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+
 /* =====================================
    START SERVER
 ===================================== */
